@@ -30,6 +30,7 @@ spigot {
             description = "Gives the BiomeChanger tool"
         }
     }
+    apiVersion = "1.19"
 }
 
 idea {
