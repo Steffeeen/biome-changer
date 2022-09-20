@@ -6,6 +6,7 @@ import net.kyori.adventure.text.format.TextColor
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
+import org.bukkit.World
 import org.bukkit.block.Biome
 import org.bukkit.block.Block
 import org.bukkit.inventory.ItemStack
@@ -103,11 +104,15 @@ class BiomeChangerTool(private val item: ItemStack) {
 
     fun changeBiomeStartingFrom(block: Block): ResultWithData<List<Location>> {
         if (selectedBiome == null) {
-            return Result.Error("You have to selected a biome first.")
+            return Result.Error("You have to selected a biome first")
         }
 
         if (usesRemaining < costs) {
             return Result.Error("You don't have enough uses left")
+        }
+
+        if (block.world.environment != World.Environment.NORMAL) {
+            return Result.Error("You can only change the biome in the overworld")
         }
 
         val columnsToChange = columnsToChange(block.location, size.radius)
