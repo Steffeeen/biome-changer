@@ -33,12 +33,12 @@ jobs:
         run: |
           JAR_PATH=$(find build/libs -name '*.jar' | head -n 1)
           BASENAME=$(basename "$JAR_PATH" .jar)
-          NEW_JAR="build/libs/${BASENAME}-${{ env.SHORT_SHA }}.jar"
-          cp "$JAR_PATH" "$NEW_JAR"
+          NEW_JAR="${BASENAME}-${{ env.SHORT_SHA }}.jar"
+          cp "$JAR_PATH" "build/libs/$NEW_JAR"
           echo "NEW_JAR=$NEW_JAR" >> $GITHUB_ENV
 
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
-          name: $(basename ${{ env.NEW_JAR }})
-          path: ${{ env.NEW_JAR }}
+          name: ${{ env.NEW_JAR }}
+          path: build/libs/${{ env.NEW_JAR }}
