@@ -1,14 +1,15 @@
 package de.steffeeen.biomechanger
 
+import io.papermc.paper.registry.RegistryAccess
+import io.papermc.paper.registry.RegistryKey
 import org.bukkit.NamespacedKey
+import org.bukkit.Registry
 import org.bukkit.block.Biome
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataAdapterContext
 import org.bukkit.persistence.PersistentDataType
 import kotlin.reflect.KProperty
 
-
-val BIOME_TYPE = enumPersistentDataType<Biome>()
 
 val SIZE_TYPE = enumPersistentDataType<Size>()
 
@@ -32,6 +33,21 @@ class EnumPersistentDataType<T>(private val clazz: Class<T>) : PersistentDataTyp
     }
 }
 
+object BiomePersistentDataType : PersistentDataType<String, Biome> {
+    override fun fromPrimitive(primitive: String, context: PersistentDataAdapterContext): Biome {
+        val namespacedKey = NamespacedKey.fromString(primitive)
+        require(namespacedKey != null) { "Invalid NamespacedKey string: $primitive" }
+        return RegistryAccess.registryAccess().getRegistry(RegistryKey.BIOME).get(namespacedKey)!!
+    }
+
+    override fun toPrimitive(complex: Biome, context: PersistentDataAdapterContext): String {
+        return complex.key.asString()
+    }
+
+    override fun getPrimitiveType(): Class<String> = String::class.java
+    override fun getComplexType(): Class<Biome> = Biome::class.java
+}
+
 inline fun <reified T : Enum<T>> Enum<T>.cycle(): T {
     val index = (ordinal + 1) % enumValues<T>().size
     return enumValues<T>()[index]
@@ -42,7 +58,7 @@ interface IPersistentDataDelegate<T, Z> {
     operator fun setValue(thisRef: Any?, property: KProperty<*>, value: Z?)
 }
 
-class PersistentDataDelegate<T, Z> private constructor(
+class PersistentDataDelegate<T : Any, Z : Any> private constructor(
     private val delegate: IPersistentDataDelegate<T, Z>,
 ) : IPersistentDataDelegate<T, Z> by delegate {
     constructor(
@@ -59,7 +75,7 @@ class PersistentDataDelegate<T, Z> private constructor(
     }
 }
 
-class NullablePersistentDataDelegate<T, Z>(
+class NullablePersistentDataDelegate<T : Any, Z : Any>(
     private val key: NamespacedKey,
     private val type: PersistentDataType<T, Z>,
     private val item: ItemStack,

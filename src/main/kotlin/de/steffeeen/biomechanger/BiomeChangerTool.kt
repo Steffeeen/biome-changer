@@ -3,12 +3,14 @@ package de.steffeeen.biomechanger
 import net.kyori.adventure.text.Component
 import net.kyori.adventure.text.format.NamedTextColor
 import net.kyori.adventure.text.format.TextColor
+import net.kyori.adventure.text.format.TextDecoration
 import org.bukkit.Location
 import org.bukkit.Material
 import org.bukkit.NamespacedKey
 import org.bukkit.World
 import org.bukkit.block.Biome
 import org.bukkit.block.Block
+import org.bukkit.event.player.PlayerInteractEvent
 import org.bukkit.inventory.ItemStack
 import org.bukkit.persistence.PersistentDataType
 
@@ -61,11 +63,13 @@ fun ItemStack.toBiomeChangerTool(): BiomeChangerTool? {
 
 fun createBiomeChangerToolItem(): ItemStack {
     val item = ItemStack(Material.BLAZE_ROD)
-    item.editMeta { it.persistentDataContainer.set(BIOME_CHANGER_TOOL_KEY, PersistentDataType.BYTE, 1) }
-    item.editMeta { it.persistentDataContainer.set(USES_REMAINING_KEY, PersistentDataType.INTEGER, DEFAULT_USES) }
-    item.editMeta { it.persistentDataContainer.set(SIZE_KEY, SIZE_TYPE, Size.SMALL) }
-    item.editMeta { it.displayName(Component.text("Biome Changer").color(NamedTextColor.AQUA)) }
-    item.editMeta { it.setCustomModelData(100) }
+    item.editMeta {
+        it.persistentDataContainer.set(BIOME_CHANGER_TOOL_KEY, PersistentDataType.BYTE, 1)
+        it.persistentDataContainer.set(USES_REMAINING_KEY, PersistentDataType.INTEGER, DEFAULT_USES)
+        it.persistentDataContainer.set(SIZE_KEY, SIZE_TYPE, Size.SMALL)
+        it.displayName(Component.text("Biome Changer").color(NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, false))
+        it.setCustomModelData(100)
+    }
     item.lore(loreForBiomeChanger(null, DEFAULT_USES, Size.SMALL))
 
     return item
@@ -75,7 +79,7 @@ class BiomeChangerTool(private val item: ItemStack) {
 
     private var selectedBiome: Biome? by NullablePersistentDataDelegate(
         SELECTED_BIOME_KEY,
-        BIOME_TYPE,
+        BiomePersistentDataType,
         item,
     ) { _, new -> item.lore(loreForBiomeChanger(new, usesRemaining, size)) }
 
@@ -102,7 +106,7 @@ class BiomeChangerTool(private val item: ItemStack) {
         require(item.itemMeta.persistentDataContainer.has(SIZE_KEY)) { "SIZE_KEY missing" }
     }
 
-    fun changeBiomeStartingFrom(block: Block): ResultWithData<List<Location>> {
+    fun changeBiomeStartingFrom(block: Block, event: PlayerInteractEvent): ResultWithData<List<Location>> {
         if (selectedBiome == null) {
             return Result.Error("You have to selected a biome first")
         }
@@ -122,7 +126,8 @@ class BiomeChangerTool(private val item: ItemStack) {
         usesRemaining -= costs
 
         if (usesRemaining <= 0) {
-            item.type = Material.AIR
+            val hand = event.hand!!
+            event.player.inventory.setItem(hand, ItemStack(Material.AIR))
         }
 
         return Result.SuccessWithData(columnsToChange)
@@ -170,7 +175,13 @@ private fun changeBiomeForColumn(location: Location, biomeToChangeTo: Biome) {
     val x = location.blockX
     val z = location.blockZ
 
-    for (y in minY until maxY) {
+    for (y in location.y.toInt() until maxY) {
+        if (world.getBiome(x, y, z) == biome) {
+            world.setBiome(x, y, z, biomeToChangeTo)
+        }
+    }
+
+    for (y in location.y.toInt() downTo minY) {
         if (world.getBiome(x, y, z) == biome) {
             world.setBiome(x, y, z, biomeToChangeTo)
         }
@@ -179,22 +190,22 @@ private fun changeBiomeForColumn(location: Location, biomeToChangeTo: Biome) {
 
 private fun loreForBiomeChanger(selectedBiome: Biome?, usesRemaining: Int, size: Size): List<Component> {
     return mutableListOf(
-        Component.text("Biome: ").color(NamedTextColor.GRAY)
-            .append(biomeComponent(selectedBiome).color(NamedTextColor.GOLD)),
-        Component.text("Uses: ").color(NamedTextColor.GRAY)
-            .append(Component.text("$usesRemaining").color(NamedTextColor.GOLD)),
-        Component.text("Size: ").color(NamedTextColor.GRAY)
-            .append(Component.text(size.toString().lowercase()).color(NamedTextColor.GOLD))
+        Component.text("Biome: ").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+            .append(biomeComponent(selectedBiome).color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)),
+        Component.text("Uses: ").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+            .append(Component.text("$usesRemaining").color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)),
+        Component.text("Size: ").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
+            .append(Component.text(size.toString().lowercase()).color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false)),
     )
 }
 
 private fun biomeComponent(selectedBiome: Biome?): Component =
     when (selectedBiome) {
         null -> Component.text("none")
-        else -> Component.text(selectedBiome.toDisplayString())
+        else -> selectedBiome.getNameAsComponent()
     }
 
-fun Biome.toDisplayString(): String {
-    return name.split("_").joinToString(" ") { it.lowercase().replaceFirstChar(Char::uppercase) }
+fun Biome.getNameAsComponent(): Component {
+    return Component.translatable(this.translationKey())
 }
 

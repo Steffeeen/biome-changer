@@ -81,22 +81,25 @@ class BiomeChanger : JavaPlugin(), Listener {
     private fun handleBiomeChanging(
         biomeChangerTool: BiomeChangerTool, event: PlayerInteractEvent,
     ) {
-        when (val result = biomeChangerTool.changeBiomeStartingFrom(event.clickedBlock!!)) {
+        when (val result = biomeChangerTool.changeBiomeStartingFrom(event.clickedBlock!!, event)) {
             is BiomeChangerTool.Result.Error -> event.player.sendActionBar(
                 Component.text(result.message).color(NamedTextColor.RED)
             )
 
-            is BiomeChangerTool.Result.SuccessWithData<List<Location>> -> result.data.forEach {
-                it.world.spawnParticle(
-                    Particle.FLAME, it.clone().add(0.5, 1.5, 0.5), 1, 0.0, 0.0, 0.0, 0.0
-                )
+            is BiomeChangerTool.Result.SuccessWithData<List<Location>> -> {
+                result.data.forEach {
+                    it.world.spawnParticle(
+                        Particle.FLAME, it.clone().add(0.5, 1.5, 0.5), 1, 0.0, 0.0, 0.0, 0.0
+                    )
+                }
+                val chunksToUpdate = result.data.map { it.chunk }.toSet()
+                val world = result.data.first().world
+                chunksToUpdate.forEach { world.refreshChunk(it.x, it.z) }
             }
         }
     }
 
-    private fun handleBiomeSelection(
-        biomeChangerTool: BiomeChangerTool, event: PlayerInteractEvent,
-    ) {
+    private fun handleBiomeSelection(biomeChangerTool: BiomeChangerTool, event: PlayerInteractEvent) {
         val block = event.clickedBlock!!
         when (val result = biomeChangerTool.changeSelectedBiomeTo(block.biome)) {
             is BiomeChangerTool.Result.Error -> event.player.sendActionBar(
@@ -104,7 +107,7 @@ class BiomeChanger : JavaPlugin(), Listener {
             )
 
             is BiomeChangerTool.Result.Success -> event.player.sendActionBar(
-                Component.text("Selected ${block.biome.toDisplayString()}").color(NamedTextColor.GREEN)
+                Component.text("Selected ").append(block.biome.getNameAsComponent().color(NamedTextColor.GREEN))
             )
         }
     }
